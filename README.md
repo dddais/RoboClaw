@@ -19,7 +19,7 @@ Instead of treating those stages as separate systems, RoboClaw lets the agent re
 
 ![RoboClaw teaser](assets/teaser.jpg)
 
-> Current repository scope: this repo currently contains the paper PDF and project assets. The public code release is planned before **March 31, 2026**.
+> Current repository scope: this repo currently contains the paper PDF and project assets. The public codebase has been submitted and is **pending review** by **Agibot**, the company, before release.
 
 ## ✨ Highlights
 - One agent loop across collection, training, and deployment
@@ -74,7 +74,7 @@ RoboClaw/
 - PDF: [assets/paper.pdf](assets/paper.pdf)
 
 ## 🚧 Open-Source Release
-The public codebase is being prepared for release before **March 31, 2026**.
+The public codebase has been submitted and is **pending review** by **Agibot**, the company, before release.
 
 The planned release will include:
 - agent orchestration code

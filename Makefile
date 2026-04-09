@@ -22,9 +22,9 @@ init:
 	mkdir -p ./applog/
 	git submodule update --init --recursive || true
 	uv python install $(ROOT_PYTHON) $(MCP_PYTHON)
+	uv sync --frozen --python $(ROOT_PYTHON) --no-build-isolation || uv sync --python $(ROOT_PYTHON) --no-build-isolation
 	uv pip install setuptools --python $(ROOT_PYTHON)
-	uv sync --frozen --python $(ROOT_PYTHON) --no-build-isolation
-	$(UV_RUN_ROOT) --no-build-isolation pre-commit install
+	$(UV_RUN_ROOT) --no-build-isolation pre-commit install || true
 	@test -d "$(BASIC_MEMORY_DIR)/.git" && uv --directory "$(BASIC_MEMORY_DIR)" sync --frozen --python $(MCP_PYTHON) || echo "[skip] basic-memory submodule not cloned"
 	@test -d "$(METASEARCH_DIR)/.git" && uv --directory "$(METASEARCH_DIR)" sync --frozen --python $(MCP_PYTHON) || echo "[skip] metasearch-mcp submodule not cloned"
 	uv --directory "$(COROBOT_MCP_DIR)" sync --python $(ROOT_PYTHON)

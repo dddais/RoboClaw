@@ -6,7 +6,7 @@ from agent_demo.agent_layer.agent_prompt import ImgActAgentPrompt
 from agent_demo.agent_layer.agent_core.img_act_agent.img_act_agent import ToolCallRecord
 from agent_demo.common.response_formatter import format_response_text
 from agent_demo.common.root_logger import setup_root_logging
-from agent_demo.machine_layer.dataloader_corobot import DataLoaderCoRobot as DataLoaderA2D
+from agent_demo.machine_layer.dataloader_factory import create_robot_dataloader
 from pathlib import Path
 import traceback
 import logging
@@ -47,13 +47,8 @@ ROLLOUT_COMPLETE_MSG = (
 LONG_HORIZON_SKILL_NAME = "long-horizon-execution"
 
 
-def _create_robot_dataloader() -> tuple[DataLoaderA2D | None, str | None]:
-    try:
-        return DataLoaderA2D(base_url="http://localhost:8765"), None
-    except Exception as exc:
-        warning = f"A2D unavailable; running in chat-only mode: {exc}"
-        logger.warning(warning)
-        return None, warning
+def _create_robot_dataloader():
+    return create_robot_dataloader()
 
 
 def _get_run_skill_payload(record: ToolCallRecord) -> dict | None:
@@ -611,9 +606,15 @@ class Session:
 
 class ASR_Model:
     def __init__(self, model_name: str = "base"):
-        self.model = whisper.load_model(model_name)
+        self.model = None
+        try:
+            self.model = whisper.load_model(model_name)
+        except Exception as e:
+            logger.warning("Whisper ASR model failed to load (voice input disabled): %s", e)
 
     def transcribe(self, audio_path: str) -> str:
+        if self.model is None:
+            return "[Voice input unavailable: Whisper model not loaded]"
         result = self.model.transcribe(audio_path)
         return str(result["text"])
 
@@ -2308,4 +2309,9 @@ if __name__ == "__main__":
 
     # Enable Gradio's request queue so async-generator yields are pushed to the UI incrementally.
     demo.queue()
+
+    no_proxy = os.environ.get("no_proxy", "")
+    if "localhost" not in no_proxy:
+        os.environ["no_proxy"] = ",".join(filter(None, [no_proxy, "localhost,127.0.0.1,0.0.0.0"]))
+
     demo.launch(server_name="0.0.0.0", server_port=11233)

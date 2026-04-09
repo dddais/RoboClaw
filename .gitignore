@@ -188,3 +188,6 @@ cython_debug/
 .pypirc
 performance_logs
 /.codex
+
+src/mcp_server_demo/basic-memory/
+src/mcp_server_demo/metasearch-mcp/

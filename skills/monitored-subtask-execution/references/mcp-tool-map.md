@@ -1,4 +1,4 @@
-# CoRobot MCP Tool Map
+# Robot MCP Tool Map
 
 ## Tool naming convention (important)
 
@@ -10,13 +10,15 @@ The separator `___` is defined in:
 
 - `src/agent_demo/types/agent_types/agent_components_types/ormcp_service_types/ormcp_service_types.py`
 
-## Key MCP service: `corobot_mcp_server`
+## Supported robot MCP services
 
-Implementation:
+Only one robot service should be active at a time. Check the Server Registry to determine which one is enabled.
 
-- `src/mcp_server_demo/corobot_mcp_server/src/server.py`
+### Service 1: `corobot_mcp_server` (Agibot G01 CoRobot)
 
-This service wraps the local CoRobot PolicyTask HTTP API, default `http://localhost:8765`, and exposes these tools to the agent:
+Implementation: `src/mcp_server_demo/corobot_mcp_server/src/server.py`
+
+This service wraps the local CoRobot PolicyTask HTTP API (default `http://localhost:8765`) and exposes these tools:
 
 - `corobot_mcp_server___set_evaluate_params`
 - `corobot_mcp_server___start_task`
@@ -26,12 +28,33 @@ This service wraps the local CoRobot PolicyTask HTTP API, default `http://localh
 - `corobot_mcp_server___get_prompt`
 - `corobot_mcp_server___set_prompt`
 
-### `set_evaluate_params` arguments template
+Default policy server: `127.0.0.1:8001`
+
+### Service 2: `x2robot_mcp_server` (Turtle2 x2robot)
+
+Implementation: `src/mcp_server_demo/x2robot_mcp_server/src/server.py`
+
+This service wraps the x2robot bridge HTTP API (default `X2ROBOT_BRIDGE_URL` env var) and exposes these tools:
+
+- `x2robot_mcp_server___set_evaluate_params`
+- `x2robot_mcp_server___start_task`
+- `x2robot_mcp_server___stop_task`
+- `x2robot_mcp_server___reset_task`
+- `x2robot_mcp_server___get_status`
+- `x2robot_mcp_server___get_prompt`
+- `x2robot_mcp_server___set_prompt`
+- `x2robot_mcp_server___emergency_stop`
+
+Default inference server: `192.168.0.20:57770`
+
+## `set_evaluate_params` arguments template
+
+The argument structure is the same for both services:
 
 ```json
 {
   "evaluate_params": {
-    "policy": {"host": "127.0.0.1", "port": 8001},
+    "policy": {"host": "<inference_host>", "port": <inference_port>},
     "prompt": "Put the primer into the drawer labeled PRIMER and close it.",
     "step_interval": 1.5
   }

@@ -31,7 +31,7 @@ If the user gives only a high-level execution goal, infer a minimal one-pass pla
 ## Hard Rules
 
 - Execute every prompt-driven subtask through `$monitored-subtask-execution`.
-- Do not call `corobot_mcp_server___*` directly from this skill.
+- Do not call `corobot_mcp_server___*` or `x2robot_mcp_server___*` directly from this skill.
 - Keep each subtask narrow enough to have one prompt and one external success check.
 - Prefer deterministic recovery before replanning. Replan only when the current plan no longer matches the world state.
 - When the next step should be executed automatically, return a top-level JSON object with `status`, `selected_skill`, `next_skill`, and `skill_args`.

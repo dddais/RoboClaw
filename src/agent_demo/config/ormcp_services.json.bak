@@ -44,7 +44,7 @@
         "simple_cn": "该服务可以通过CoRobot控制机器人执行策略任务，支持启动/停止任务、设置提示词、配置策略服务器等功能",
         "simple_en": "This service can control robot policy tasks through CoRobot, supporting start/stop tasks, set prompts, configure policy servers, etc."
       },
-      "need_activation": false,
+      "need_activation": true,
       "command": "uv",
       "args": [
         "--directory",
@@ -70,25 +70,6 @@
         "server.py"
       ],
       "env": {},
-      "url": ""
-    },
-    "x2robot_mcp_server": {
-      "connection_type": "STDIO",
-      "description": {
-        "simple_cn": "x2robot 机器人控制服务，通过 bridge 控制机器人执行策略任务，支持启动/停止/重置任务、设置提示词、配置推理服务器、紧急停止等",
-        "simple_en": "x2robot control service via bridge HTTP API, supporting start/stop/reset tasks, set prompts, configure inference server, emergency stop, etc."
-      },
-      "need_activation": true,
-      "command": "uv",
-      "args": [
-        "--directory",
-        "src/mcp_server_demo/x2robot_mcp_server/src",
-        "run",
-        "server.py"
-      ],
-      "env": {
-        "X2ROBOT_BRIDGE_URL": "http://192.168.120.71:8766"
-      },
       "url": ""
     }
   }

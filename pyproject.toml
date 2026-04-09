@@ -38,6 +38,11 @@ dependencies = [
     "plotly>=6.5.2",
 ]
 
+
+[[tool.uv.index]]
+url = "https://pypi.tuna.tsinghua.edu.cn/simple"
+default = true
+
 [tool.black]
 line-length = 120 # 行长度优化 (默认88 → 更现代化)
 skip-string-normalization = true # 保留原始引号风格 (避免无意义的引号转换)

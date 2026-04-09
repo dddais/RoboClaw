@@ -93,6 +93,9 @@ class OpenAIClient(BaseChatAPI):
         send_package: OpenAISendMsg,
         on_text_delta: Callable[[str], Awaitable[None]] | None = None,
     ) -> OpenAIResponseMsg:
+        if os.environ.get("ROBOCLAW_DUMP_PROMPTS"):
+            self._dump_send_package(send_package)
+
         # 确保状态从 READY 开始
         if self._state != llmState.READY:
             logger.warning(f"[OpenAIClient] 状态不是 READY ({self._state})，强制重置为 READY")
@@ -840,3 +843,36 @@ class OpenAIClient(BaseChatAPI):
         except Exception as e:
             logger.error(f"Unexpected error in chat(): {e}", exc_info=True)
             raise
+
+    _dump_counter: int = 0
+
+    def _dump_send_package(self, send_package: OpenAISendMsg) -> None:
+        OpenAIClient._dump_counter += 1
+        dump_dir = os.path.join("applog", "prompt_dumps")
+        os.makedirs(dump_dir, exist_ok=True)
+        path = os.path.join(dump_dir, f"req_{OpenAIClient._dump_counter:04d}.json")
+        try:
+            sanitized = []
+            for msg in send_package.contexts:
+                entry = dict(msg)
+                content = entry.get("content")
+                if isinstance(content, list):
+                    stripped = []
+                    for part in content:
+                        if isinstance(part, dict) and part.get("type") == "image_url":
+                            stripped.append({"type": "image_url", "image_url": "[base64 omitted]"})
+                        else:
+                            stripped.append(part)
+                    entry["content"] = stripped
+                sanitized.append(entry)
+            payload = {
+                "request_index": OpenAIClient._dump_counter,
+                "model": self._agent_card_ref.config.model,
+                "messages": sanitized,
+                "tools_count": len(send_package.tools_list) if send_package.tools_list else 0,
+            }
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(payload, f, ensure_ascii=False, indent=2)
+            logger.info("[PromptDump] Saved to %s (%d messages)", path, len(sanitized))
+        except Exception as exc:
+            logger.warning("[PromptDump] Failed: %s", exc)

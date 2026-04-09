@@ -8,6 +8,7 @@ BASIC_MEMORY_DIR := $(MAKEFILE_DIR)/src/mcp_server_demo/basic-memory
 METASEARCH_DIR := $(MAKEFILE_DIR)/src/mcp_server_demo/metasearch-mcp
 COROBOT_MCP_DIR := $(MAKEFILE_DIR)/src/mcp_server_demo/corobot_mcp_server
 DATA_ANALYST_MCP_DIR := $(MAKEFILE_DIR)/src/mcp_server_demo/data_analyst_mcp_server
+X2ROBOT_MCP_DIR := $(MAKEFILE_DIR)/src/mcp_server_demo/x2robot_mcp_server
 
 # 默认仅注入 src；本地扩展目录存在时自动加入；可选追加授权用户的 site-packages
 PYTHONPATH_VALUE := $(MAKEFILE_DIR)/src$(if $(wildcard $(LOCAL_PKG_DIR)),:$(LOCAL_PKG_DIR),)$(if $(COROBOT_SITE_PACKAGES),:$(COROBOT_SITE_PACKAGES),)
@@ -19,14 +20,16 @@ UV_RUN_ROOT := uv run --python $(ROOT_PYTHON)
 
 init:
 	mkdir -p ./applog/
-	git submodule update --init --recursive
+	git submodule update --init --recursive || true
 	uv python install $(ROOT_PYTHON) $(MCP_PYTHON)
-	uv sync --frozen --python $(ROOT_PYTHON)
-	$(UV_RUN_ROOT) pre-commit install
-	uv --directory "$(BASIC_MEMORY_DIR)" sync --frozen --python $(MCP_PYTHON)
-	uv --directory "$(METASEARCH_DIR)" sync --frozen --python $(MCP_PYTHON)
+	uv pip install setuptools --python $(ROOT_PYTHON)
+	uv sync --frozen --python $(ROOT_PYTHON) --no-build-isolation
+	$(UV_RUN_ROOT) --no-build-isolation pre-commit install
+	@test -d "$(BASIC_MEMORY_DIR)/.git" && uv --directory "$(BASIC_MEMORY_DIR)" sync --frozen --python $(MCP_PYTHON) || echo "[skip] basic-memory submodule not cloned"
+	@test -d "$(METASEARCH_DIR)/.git" && uv --directory "$(METASEARCH_DIR)" sync --frozen --python $(MCP_PYTHON) || echo "[skip] metasearch-mcp submodule not cloned"
 	uv --directory "$(COROBOT_MCP_DIR)" sync --python $(ROOT_PYTHON)
-	uv --directory "$(DATA_ANALYST_MCP_DIR)" sync --python $(ROOT_PYTHON)
+	uv --directory "$(X2ROBOT_MCP_DIR)" sync --python $(ROOT_PYTHON) || echo "[skip] x2robot_mcp_server sync failed (optional)"
+	uv --directory "$(DATA_ANALYST_MCP_DIR)" sync --python $(ROOT_PYTHON) || echo "[skip] data_analyst_mcp_server sync failed (optional)"
 
 install_g01_whl:
 	@test -n "$(COROBOT_WHL)" || (echo "请提供 COROBOT_WHL=/path/to/corobot-*.whl" && exit 1)
@@ -64,3 +67,37 @@ test_udp:
 
 test_a2d_img:
 	$(LD_LIBRARY) $(PYENV) $(UV_RUN_ROOT) python ${MAKEFILE_DIR}tests/agent_demo/agent_layer/test_img_agent.py
+
+# ---- Mock services (no hardware required) ----
+
+run_mock_server:
+	$(PYENV) $(UV_RUN_ROOT) python ${MAKEFILE_DIR}src/mcp_server_demo/corobot_mcp_server/mock_corobot_server.py
+
+run_mock_gui:
+	@echo "Starting MockCoRobotServer in background..."
+	$(PYENV) $(UV_RUN_ROOT) python ${MAKEFILE_DIR}src/mcp_server_demo/corobot_mcp_server/mock_corobot_server.py &
+	@sleep 1
+	$(PYENV) $(UV_RUN_ROOT) python ${MAKEFILE_DIR}src/agent_demo/interaction_layer/gradio_ui/gradio_ui.py
+
+run_mock_tui:
+	@echo "Starting MockCoRobotServer in background..."
+	$(PYENV) $(UV_RUN_ROOT) python ${MAKEFILE_DIR}src/mcp_server_demo/corobot_mcp_server/mock_corobot_server.py &
+	@sleep 1
+	$(PYENV) $(UV_RUN_ROOT) python ${MAKEFILE_DIR}src/agent_demo/interaction_layer/tui/olympus_tui.py
+
+# ---- x2robot mock services ----
+
+run_x2robot_mock_bridge:
+	$(PYENV) $(UV_RUN_ROOT) python ${MAKEFILE_DIR}src/mcp_server_demo/x2robot_mcp_server/mock_x2robot_bridge.py
+
+run_x2robot_mock_gui:
+	@echo "Starting MockX2RobotBridge in background..."
+	$(PYENV) $(UV_RUN_ROOT) python ${MAKEFILE_DIR}src/mcp_server_demo/x2robot_mcp_server/mock_x2robot_bridge.py &
+	@sleep 1
+	$(PYENV) $(UV_RUN_ROOT) python ${MAKEFILE_DIR}src/agent_demo/interaction_layer/gradio_ui/gradio_ui.py
+
+run_x2robot_mock_tui:
+	@echo "Starting MockX2RobotBridge in background..."
+	$(PYENV) $(UV_RUN_ROOT) python ${MAKEFILE_DIR}src/mcp_server_demo/x2robot_mcp_server/mock_x2robot_bridge.py &
+	@sleep 1
+	$(PYENV) $(UV_RUN_ROOT) python ${MAKEFILE_DIR}src/agent_demo/interaction_layer/tui/olympus_tui.py

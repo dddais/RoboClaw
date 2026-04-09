@@ -32,7 +32,7 @@ from agent_demo.common.response_formatter import format_response_text
 from agent_demo.common.root_logger import setup_root_logging
 from agent_demo.interaction_layer.feishu_long_connection import start_feishu_long_connection
 from agent_demo.interaction_layer.local_skill_support import prepare_agent_message
-from agent_demo.machine_layer.dataloader_corobot import DataLoaderCoRobot as DataLoaderA2D
+from agent_demo.machine_layer.dataloader_factory import create_robot_dataloader
 from agent_demo.types.agent_types import ActAgentState, BaseAgentCard, ChatAPIConfig, TextParam
 
 logger = logging.getLogger(__name__)
@@ -74,13 +74,8 @@ ASSISTANT_SALIENT_KEYWORDS = (
 )
 
 
-def _create_robot_dataloader() -> tuple[DataLoaderA2D | None, str | None]:
-    try:
-        return DataLoaderA2D(base_url="http://localhost:8765"), None
-    except Exception as exc:
-        warning = f"A2D unavailable; running in chat-only mode: {exc}"
-        logger.warning(warning)
-        return None, warning
+def _create_robot_dataloader():
+    return create_robot_dataloader()
 
 
 def _compact_chat_message(content: str, role: str) -> str:

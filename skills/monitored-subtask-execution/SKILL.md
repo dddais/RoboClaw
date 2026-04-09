@@ -1,19 +1,27 @@
 ---
 name: monitored-subtask-execution
-description: "Monitored single-subtask execution workflow. Use the repository MCP service `corobot_mcp_server` to start, monitor, stop, and reset one prompt-driven robot rollout through the sequence `set_evaluate_params`, poll `get_status`, then `stop/reset`. Use this skill whenever a larger workflow needs one repeatable, safe execution unit with timeout handling and deterministic cleanup."
+description: "Monitored single-subtask execution workflow. Use the active robot MCP service (corobot_mcp_server or x2robot_mcp_server) to start, monitor, stop, and reset one prompt-driven robot rollout through the sequence set_evaluate_params, poll get_status, then stop/reset. Use this skill whenever a larger workflow needs one repeatable, safe execution unit with timeout handling and deterministic cleanup."
 ---
 
 # Monitored Subtask Execution
 
 ## Overview
 
-Use a standardized procedure to call `corobot_mcp_server` MCP tools and execute one monitored robot subtask. In practice this is one CoRobot PolicyTask run defined by a prompt, an optional policy host/port, and an optional `step_interval`, followed by deterministic monitoring and cleanup.
+Use a standardized procedure to call the active robot MCP service tools and execute one monitored robot subtask. The active robot service is whichever of `corobot_mcp_server` or `x2robot_mcp_server` is currently enabled in the Server Registry. In practice this is one robot task run defined by a prompt, an optional policy host/port, and an optional `step_interval`, followed by deterministic monitoring and cleanup.
+
+## Determining the Active Robot Service
+
+Check the Server Registry to identify the active robot MCP service. The tool prefix will be one of:
+- `corobot_mcp_server___` — when using CoRobot (Agibot G01)
+- `x2robot_mcp_server___` — when using x2robot (Turtle2)
+
+Throughout this skill, `{robot_svc}` refers to whichever service is active. For example, `{robot_svc}___set_evaluate_params` means `corobot_mcp_server___set_evaluate_params` or `x2robot_mcp_server___set_evaluate_params`.
 
 ## Inputs (provide per run)
 
 - `prompt`: task instruction to execute; keep it directly executable and unambiguous
-- `policy.host / policy.port`: optional policy server; if omitted, the service default `127.0.0.1:8001` is used
-- `step_interval`: optional step interval; service default is `1.5`
+- `policy.host / policy.port`: optional policy server; if omitted, the service default is used (CoRobot: `127.0.0.1:8001`, x2robot: `192.168.0.20:57770`)
+- `step_interval`: optional step interval
 - `timeout_s`: maximum time to wait for this run
 - `poll_interval_s`: interval for polling `get_status`, for example `0.5` to `2.0`
 - `reset_after`: whether to call `reset_task` after completion and return to the home pose; collection workflows usually want `true`
@@ -23,15 +31,16 @@ Use a standardized procedure to call `corobot_mcp_server` MCP tools and execute 
 
 Core tools, named as `{service_name}___{tool_name}`:
 
-- `corobot_mcp_server___set_evaluate_params`: set the prompt, policy, and `step_interval`, then auto-start the task after a short delay
-- `corobot_mcp_server___get_status`: retrieve PolicyTask status to determine running, success, or failure state
-- `corobot_mcp_server___stop_task`: stop the current task; prefer this before manual intervention
-- `corobot_mcp_server___reset_task`: stop and reset the robot to the initial pose
+- `{robot_svc}___set_evaluate_params`: set the prompt, policy, and `step_interval`, then auto-start the task after a short delay
+- `{robot_svc}___get_status`: retrieve task status to determine running, success, or failure state
+- `{robot_svc}___stop_task`: stop the current task; prefer this before manual intervention
+- `{robot_svc}___reset_task`: stop and reset the robot to the initial pose
 
 Optional tools, usually not needed:
 
-- `corobot_mcp_server___start_task`: explicit start; usually unnecessary because `set_evaluate_params` already auto-starts
-- `corobot_mcp_server___get_prompt` / `corobot_mcp_server___set_prompt`: inspect or set the current prompt
+- `{robot_svc}___start_task`: explicit start; usually unnecessary because `set_evaluate_params` already auto-starts
+- `{robot_svc}___get_prompt` / `{robot_svc}___set_prompt`: inspect or set the current prompt
+- `{robot_svc}___emergency_stop` (x2robot only): immediate emergency stop
 
 For exact argument structure, see `references/mcp-tool-map.md`.
 
@@ -41,29 +50,29 @@ For exact argument structure, see `references/mcp-tool-map.md`.
 
 When no prompt should be executed and you only need to return the robot to a reusable start state:
 
-1. Call `corobot_mcp_server___stop_task` if a task might still be running.
-2. Call `corobot_mcp_server___reset_task`.
+1. Call `{robot_svc}___stop_task` if a task might still be running.
+2. Call `{robot_svc}___reset_task`.
 
 ## Workflow: Execute One Subtask (single prompt)
 
 ### Step 0: Safety + Preconditions
 
 - Confirm the robot workspace is safe, emergency stop is available, and human intervention is possible.
-- Confirm the MCP service is enabled and reachable. `corobot_mcp_server` is configured in `src/agent_demo/config/ormcp_services.json`.
+- Confirm the robot MCP service is enabled and reachable in `src/agent_demo/config/ormcp_services.json`.
 - Decide whether this run should preserve its terminal state or return to a reusable start state:
 - If only the action result matters, use `reset_after=false`.
 - If the next round needs a reusable start state, use `reset_after=true`.
 
 ### Step 1: Start (set params + auto-start)
 
-Call `corobot_mcp_server___set_evaluate_params`.
+Call `{robot_svc}___set_evaluate_params`.
 
 Argument template:
 
 ```json
 {
   "evaluate_params": {
-    "policy": {"host": "127.0.0.1", "port": 8001},
+    "policy": {"host": "<inference_host>", "port": <inference_port>},
     "prompt": "<prompt>",
     "step_interval": 1.5
   }
@@ -76,7 +85,7 @@ Important behavior:
 
 ### Step 2: Monitor (poll get_status with a timeout)
 
-- Poll `corobot_mcp_server___get_status` every `poll_interval_s` until one of these conditions is met:
+- Poll `{robot_svc}___get_status` every `poll_interval_s` until one of these conditions is met:
 - the returned status clearly indicates completion, success, or failure
 - `timeout_s` is reached
 - behavior becomes unsafe or manual intervention is required
@@ -86,21 +95,22 @@ Important behavior:
 
 Success path:
 
-- If `reset_after=true`, call `corobot_mcp_server___reset_task`.
+- If `reset_after=true`, call `{robot_svc}___reset_task`.
 - Record the run metadata: `prompt`, `policy host/port`, `step_interval`, start time, end time, and final status text.
 
 Failure, timeout, or uncertain-status path:
 
-1. Call `corobot_mcp_server___stop_task`.
-2. Call `corobot_mcp_server___reset_task`.
+1. Call `{robot_svc}___stop_task`.
+2. Call `{robot_svc}___reset_task`.
 3. Record the failure reason, including timeout, connection failure, malformed status, or manual intervention.
 4. If `max_retries` allows another attempt, return to Step 1. Otherwise mark the run as failed and exit.
 
 ## Troubleshooting
 
-- If the result indicates a CoRobot connection failure or request failure, verify that the local CoRobot HTTP service is reachable at `http://localhost:8765` and that the robot control stack is healthy.
+- **CoRobot**: If the result indicates a connection failure, verify that the local CoRobot HTTP service is reachable at `http://localhost:8765`.
+- **x2robot**: If the result indicates a connection failure, verify that the x2robot bridge server is reachable at the configured `X2ROBOT_BRIDGE_URL` and that `video_streaming.py` and `socket2ros_async.py` are running on the robot.
 - If the task gets stuck, follow the failure path `stop_task -> reset_task`. Pause and restore the environment manually if needed.
 
 ## References
 
-- `references/mcp-tool-map.md`: `corobot_mcp_server` tool list, naming rules, and argument structure
+- `references/mcp-tool-map.md`: robot MCP service tool lists, naming rules, and argument structure

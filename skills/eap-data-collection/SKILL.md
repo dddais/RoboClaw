@@ -13,7 +13,7 @@ Use one closed-loop workflow to collect self-resetting manipulation data:
 - Run a reverse or recovery rollout that returns the environment to a reusable starting state.
 - Persist both trajectories and rollout metadata into dataset `D`.
 
-Important constraint: keep all concrete CoRobot / MCP tool-call details inside `$monitored-subtask-execution`. This skill only defines the data collection procedure.
+Important constraint: keep all concrete robot MCP tool-call details (CoRobot or x2robot) inside `$monitored-subtask-execution`. This skill only defines the data collection procedure.
 
 ## Inputs (you must provide)
 
@@ -45,7 +45,7 @@ Use the same skill for rollout execution and reset:
 
 - `AgentTools___ensure_run_artifacts`: create `run_dir`, `run_dir/logs`, and `run_dir/dataset`
 - `AgentTools___append_jsonl_record`: append round logs, status logs, and dataset episode records as JSONL
-- `$monitored-subtask-execution`: wraps `corobot_mcp_server` startup, polling, stop, and reset so all CoRobot-specific tool calls remain centralized in one skill
+- `$monitored-subtask-execution`: wraps the active robot MCP service (corobot or x2robot) startup, polling, stop, and reset so all robot-specific tool calls remain centralized in one skill
 
 ## Run Artifacts
 

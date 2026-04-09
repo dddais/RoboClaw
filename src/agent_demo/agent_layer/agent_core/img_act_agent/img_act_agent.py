@@ -461,6 +461,8 @@ class ImgActAgent(BaseAgent):
                 )
                 if on_status is not None:
                     await on_status(f"Delegating to skill: {next_skill}")
+                if self._state != ActAgentState.READY:
+                    self._transition_state(ActAgentState.READY)
                 res = await self.chat(delegated_message, on_text_delta=on_text_delta)
                 logger.info(f"[😼 ]{res.first_choice.message}")
 

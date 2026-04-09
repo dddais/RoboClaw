@@ -115,6 +115,9 @@ class OpenAIClient(BaseChatAPI):
 
             res_analysis = await self._analyze_sync_response(res_original)
 
+            if os.environ.get("ROBOCLAW_DUMP_PROMPTS"):
+                self._dump_response(res_analysis)
+
             # 状态转换
             self._transition_state(llmState.READY)
 
@@ -850,9 +853,11 @@ class OpenAIClient(BaseChatAPI):
         OpenAIClient._dump_counter += 1
         dump_dir = os.path.join("applog", "prompt_dumps")
         os.makedirs(dump_dir, exist_ok=True)
+        save_images = os.environ.get("ROBOCLAW_DUMP_IMAGES", "").strip() in ("1", "true", "yes")
         path = os.path.join(dump_dir, f"req_{OpenAIClient._dump_counter:04d}.json")
         try:
             sanitized = []
+            img_count = 0
             for msg in send_package.contexts:
                 entry = dict(msg)
                 content = entry.get("content")
@@ -860,7 +865,15 @@ class OpenAIClient(BaseChatAPI):
                     stripped = []
                     for part in content:
                         if isinstance(part, dict) and part.get("type") == "image_url":
-                            stripped.append({"type": "image_url", "image_url": "[base64 omitted]"})
+                            img_count += 1
+                            if save_images:
+                                img_url = part.get("image_url", {})
+                                url_str = img_url.get("url", "") if isinstance(img_url, dict) else str(img_url)
+                                img_path = os.path.join(dump_dir, f"req_{OpenAIClient._dump_counter:04d}_img{img_count}.jpg")
+                                self._save_base64_image(url_str, img_path)
+                                stripped.append({"type": "image_url", "image_file": img_path})
+                            else:
+                                stripped.append({"type": "image_url", "image_url": "[base64 omitted]"})
                         else:
                             stripped.append(part)
                     entry["content"] = stripped
@@ -870,9 +883,120 @@ class OpenAIClient(BaseChatAPI):
                 "model": self._agent_card_ref.config.model,
                 "messages": sanitized,
                 "tools_count": len(send_package.tools_list) if send_package.tools_list else 0,
+                "images_count": img_count,
             }
             with open(path, "w", encoding="utf-8") as f:
                 json.dump(payload, f, ensure_ascii=False, indent=2)
-            logger.info("[PromptDump] Saved to %s (%d messages)", path, len(sanitized))
+            logger.info("[PromptDump] Saved to %s (%d messages, %d images)", path, len(sanitized), img_count)
         except Exception as exc:
             logger.warning("[PromptDump] Failed: %s", exc)
+
+    def _dump_response(self, response_msg: "OpenAIResponseMsg") -> None:
+        dump_dir = os.path.join("applog", "prompt_dumps")
+        os.makedirs(dump_dir, exist_ok=True)
+        path = os.path.join(dump_dir, f"req_{OpenAIClient._dump_counter:04d}_response.json")
+        try:
+            payload = {
+                "request_index": OpenAIClient._dump_counter,
+                "response_text": getattr(response_msg, "text", ""),
+                "tool_calls": getattr(response_msg, "tool_calls", []),
+            }
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(payload, f, ensure_ascii=False, indent=2)
+            logger.info("[PromptDump] Response saved to %s", path)
+        except Exception as exc:
+            logger.warning("[PromptDump] Response dump failed: %s", exc)
+
+        self._dump_readable_md()
+
+    def _dump_readable_md(self) -> None:
+        """Generate a human-readable markdown log for the current request+response pair."""
+        dump_dir = os.path.join("applog", "prompt_dumps")
+        req_path = os.path.join(dump_dir, f"req_{OpenAIClient._dump_counter:04d}.json")
+        resp_path = os.path.join(dump_dir, f"req_{OpenAIClient._dump_counter:04d}_response.json")
+        md_path = os.path.join(dump_dir, f"req_{OpenAIClient._dump_counter:04d}_readable.md")
+        try:
+            req_data, resp_data = {}, {}
+            if os.path.exists(req_path):
+                with open(req_path, "r", encoding="utf-8") as f:
+                    req_data = json.load(f)
+            if os.path.exists(resp_path):
+                with open(resp_path, "r", encoding="utf-8") as f:
+                    resp_data = json.load(f)
+
+            lines: list[str] = []
+            lines.append(f"# Request #{req_data.get('request_index', '?')}")
+            lines.append(f"**Model:** {req_data.get('model', '?')}  ")
+            lines.append(f"**Tools:** {req_data.get('tools_count', 0)}  ")
+            lines.append(f"**Images:** {req_data.get('images_count', 0)}")
+            lines.append("")
+
+            for msg in req_data.get("messages", []):
+                role = msg.get("role", "?")
+                name = msg.get("name", "")
+                header = f"## [{role}]" + (f" ({name})" if name else "")
+                lines.append(header)
+                lines.append("")
+                content = msg.get("content", "")
+                if isinstance(content, str):
+                    lines.append(content)
+                elif isinstance(content, list):
+                    for part in content:
+                        if isinstance(part, dict):
+                            if part.get("type") == "image_url":
+                                img_file = part.get("image_file", "")
+                                if img_file:
+                                    lines.append(f"![image]({img_file})")
+                                else:
+                                    lines.append("*[image omitted]*")
+                            elif part.get("type") == "text":
+                                lines.append(str(part.get("text", "")))
+                            else:
+                                lines.append(str(part))
+                        else:
+                            lines.append(str(part))
+                lines.append("")
+                lines.append("---")
+                lines.append("")
+
+            lines.append("## VLM Response")
+            lines.append("")
+            resp_text = resp_data.get("response_text", "")
+            if resp_text:
+                try:
+                    parsed = json.loads(resp_text)
+                    lines.append("```json")
+                    lines.append(json.dumps(parsed, ensure_ascii=False, indent=2))
+                    lines.append("```")
+                except (json.JSONDecodeError, TypeError):
+                    lines.append(resp_text)
+            tool_calls = resp_data.get("tool_calls", [])
+            if tool_calls:
+                lines.append("")
+                lines.append("### Tool Calls")
+                lines.append("")
+                for tc in tool_calls:
+                    if isinstance(tc, dict):
+                        lines.append(f"- **{tc.get('function', {}).get('name', '?')}**: `{tc.get('function', {}).get('arguments', '')}`")
+                    else:
+                        lines.append(f"- {tc}")
+
+            with open(md_path, "w", encoding="utf-8") as f:
+                f.write("\n".join(lines))
+            logger.info("[PromptDump] Readable log saved to %s", md_path)
+        except Exception as exc:
+            logger.warning("[PromptDump] Readable dump failed: %s", exc)
+
+    @staticmethod
+    def _save_base64_image(data_url: str, path: str) -> None:
+        try:
+            import base64 as b64mod
+            if "base64," in data_url:
+                b64_data = data_url.split("base64,", 1)[1]
+            else:
+                b64_data = data_url
+            raw = b64mod.b64decode(b64_data)
+            with open(path, "wb") as f:
+                f.write(raw)
+        except Exception as exc:
+            logger.warning("[PromptDump] Image save failed: %s", exc)

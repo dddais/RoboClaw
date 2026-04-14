@@ -896,10 +896,29 @@ class OpenAIClient(BaseChatAPI):
         os.makedirs(dump_dir, exist_ok=True)
         path = os.path.join(dump_dir, f"req_{OpenAIClient._dump_counter:04d}_response.json")
         try:
+            resp_text = ""
+            tool_calls_data = []
+            if response_msg.choices:
+                choice = response_msg.choices[0]
+                msg = choice.message
+                if msg.content is not None:
+                    resp_text = msg.content.text if hasattr(msg.content, "text") else str(msg.content)
+                elif msg.refusal is not None:
+                    resp_text = msg.refusal.refusal if hasattr(msg.refusal, "refusal") else str(msg.refusal)
+                for tc in msg.tool_calls:
+                    tc_dict = tc.model_dump() if hasattr(tc, "model_dump") else tc.dict() if hasattr(tc, "dict") else str(tc)
+                    tool_calls_data.append(tc_dict)
+
             payload = {
                 "request_index": OpenAIClient._dump_counter,
-                "response_text": getattr(response_msg, "text", ""),
-                "tool_calls": getattr(response_msg, "tool_calls", []),
+                "model": response_msg.model,
+                "response_text": resp_text,
+                "tool_calls": tool_calls_data,
+                "usage": {
+                    "prompt_tokens": response_msg.prompt_tokens,
+                    "completion_tokens": response_msg.completion_tokens,
+                    "total_tokens": response_msg.total_tokens,
+                },
             }
             with open(path, "w", encoding="utf-8") as f:
                 json.dump(payload, f, ensure_ascii=False, indent=2)
@@ -977,9 +996,19 @@ class OpenAIClient(BaseChatAPI):
                 lines.append("")
                 for tc in tool_calls:
                     if isinstance(tc, dict):
-                        lines.append(f"- **{tc.get('function', {}).get('name', '?')}**: `{tc.get('function', {}).get('arguments', '')}`")
+                        fn = tc.get("function", tc)
+                        name = fn.get("name", tc.get("name", "?"))
+                        args = fn.get("arguments", tc.get("arguments", ""))
+                        lines.append(f"- **{name}**: `{args}`")
                     else:
                         lines.append(f"- {tc}")
+
+            usage = resp_data.get("usage", {})
+            if usage:
+                lines.append("")
+                lines.append(f"**Tokens:** prompt={usage.get('prompt_tokens', '?')} "
+                             f"completion={usage.get('completion_tokens', '?')} "
+                             f"total={usage.get('total_tokens', '?')}")
 
             with open(md_path, "w", encoding="utf-8") as f:
                 f.write("\n".join(lines))

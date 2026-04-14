@@ -23,7 +23,7 @@ Throughout this skill, `{robot_svc}` refers to whichever service is active. For 
 - `policy.host / policy.port`: optional policy server; if omitted, the service default is used (CoRobot: `127.0.0.1:8001`, x2robot: `192.168.0.20:57770`)
 - `step_interval`: optional step interval
 - `timeout_s`: maximum time to wait for this run
-- `poll_interval_s`: interval for polling `get_status`, for example `0.5` to `2.0`
+- `poll_interval_s`: interval for polling `get_status`; recommended `5.0` to `10.0` to avoid API rate limits (do NOT use values below 3.0)
 - `reset_after`: whether to call `reset_task` after completion and return to the home pose; collection workflows usually want `true`
 - `max_retries`: number of retries after failure; usually `0` to `2`
 

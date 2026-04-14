@@ -17,7 +17,7 @@ Use this skill to execute a multi-step robot task as an ordered sequence of veri
 - `run_dir`: directory for progress logs and final run summary
 - `policy host/port`: optional policy server passed through to `$monitored-subtask-execution`
 - `step_interval`: optional PolicyTask step interval passed through to `$monitored-subtask-execution`
-- `timeout_s` and `poll_interval_s`: rollout timeout and poll interval used by `$monitored-subtask-execution`
+- `timeout_s` and `poll_interval_s`: rollout timeout and poll interval used by `$monitored-subtask-execution`; recommended `poll_interval_s` is `5.0` to `10.0` to avoid API rate limits
 
 ## Defaulting Rules
 

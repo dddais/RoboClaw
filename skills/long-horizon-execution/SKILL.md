@@ -88,11 +88,13 @@ If the user gives only a high-level execution goal, infer a minimal one-pass pla
 - Include any pass-through fields needed by `$monitored-subtask-execution`, such as `policy.host`, `policy.port`, or `step_interval`.
 - Record the returned status text and attempt metadata in the progress log after the delegated execution returns.
 
-### Step 5: Verify the Result
+### Step 5: Verify the Result (MANDATORY visual check)
 
-- Compare the post-rollout world state against the subtask `success_check`.
-- If the subtask succeeded, mark it `done` and move to the next one.
-- If the rollout returned success but the world state does not satisfy the success check, treat it as a failed attempt.
+- **You MUST call `AgentTools___fetch_env` to get a fresh image** after each subtask completes, if `$monitored-subtask-execution` has not already done so in this turn.
+- Compare the new image against the subtask `success_check`.
+- If the visual evidence confirms the success check is met, mark the subtask `done` and move to the next one.
+- If the status says "completed" but the image shows the objective was NOT achieved, treat it as a failed attempt.
+- Do NOT advance to the next subtask without visual confirmation.
 
 ### Step 6: Recover, Retry, or Replan
 

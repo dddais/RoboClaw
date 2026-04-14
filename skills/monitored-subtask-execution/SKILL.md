@@ -91,18 +91,28 @@ Important behavior:
 - behavior becomes unsafe or manual intervention is required
 - Save the raw status text from each poll as a log record even if it cannot be parsed into a structured schema.
 
-### Step 3: Handle success / failure deterministically
+### Step 3: Visual verification after completion (MANDATORY)
 
-Success path:
+**After `get_status` returns completed, you MUST fetch a fresh image before making any success/failure judgment.**
+
+1. Call `AgentTools___fetch_env` to get the latest camera image.
+2. Compare the new image against the `success_check` criteria provided in the inputs.
+3. Only then determine whether the subtask truly succeeded or failed.
+
+Do NOT skip this step. Do NOT assume success just because `get_status` returned "completed" — the status only means the execution window ended, not that the task objective was achieved.
+
+### Step 4: Handle success / failure deterministically
+
+Success path (visual verification confirms the success_check is met):
 
 - If `reset_after=true`, call `{robot_svc}___reset_task`.
-- Record the run metadata: `prompt`, `policy host/port`, `step_interval`, start time, end time, and final status text.
+- Record the run metadata: `prompt`, `policy host/port`, `step_interval`, start time, end time, final status text, and visual verification result.
 
-Failure, timeout, or uncertain-status path:
+Failure path (visual verification shows the objective was NOT met, or timeout/error):
 
 1. Call `{robot_svc}___stop_task`.
 2. Call `{robot_svc}___reset_task`.
-3. Record the failure reason, including timeout, connection failure, malformed status, or manual intervention.
+3. Record the failure reason: what the image showed vs. what was expected.
 4. If `max_retries` allows another attempt, return to Step 1. Otherwise mark the run as failed and exit.
 
 ## Troubleshooting

@@ -109,8 +109,6 @@ class AgentTools:
             self.activate_service,
             self.navigate_to_pose,
             self.fetch_env,
-            self.ensure_run_artifacts,
-            self.append_jsonl_record,
         ]
         for method in tool_methods:
             tool = build_tool_from_func(method, service_name=self._service_name)

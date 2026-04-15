@@ -54,9 +54,7 @@ If the user gives only a high-level execution goal, infer a minimal one-pass pla
 
 ### Step 2: Initialize Run Tracking
 
-- Call `AgentTools___ensure_run_artifacts` to create `run_dir` if needed.
-- Start a progress log, for example `run_dir/logs/subtasks.jsonl`, that records every attempt with `subtask_id`, prompt, parameters, timestamps, status text, and verification result.
-- Use `AgentTools___append_jsonl_record` for progress-log writes instead of keeping state only in chat history.
+- Keep track of subtask progress in the conversation context (no external logging tools needed).
 - Initialize each planned subtask as `todo`.
 
 ### Step 3: Select the Next Subtask

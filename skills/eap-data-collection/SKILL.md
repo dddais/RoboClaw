@@ -43,8 +43,6 @@ When the user gives only a high-level collection request, do not block on a long
 
 Use the same skill for rollout execution and reset:
 
-- `AgentTools___ensure_run_artifacts`: create `run_dir`, `run_dir/logs`, and `run_dir/dataset`
-- `AgentTools___append_jsonl_record`: append round logs, status logs, and dataset episode records as JSONL
 - `$monitored-subtask-execution`: wraps the active robot MCP service (corobot or x2robot) startup, polling, stop, and reset so all robot-specific tool calls remain centralized in one skill
 
 ## Run Artifacts
@@ -74,10 +72,8 @@ Keep at least these records:
 
 ### Step 1: Initialize the Run
 
-- Call `AgentTools___ensure_run_artifacts` to create `run_dir` and the logging and dataset subdirectories if they do not already exist.
-- Write one run header record that stores `task_name`, prompt text or prompt hashes, `initial_state_criteria`, and rollout parameters.
-- Use `AgentTools___append_jsonl_record` to write that run header into `run_dir/logs/rounds.jsonl` or an equivalent JSONL run log.
 - Initialize round counters and stop conditions from `run_budget`.
+- Keep track of progress in conversation context.
 
 ### Step 2: Verify the Starting State
 
@@ -90,7 +86,7 @@ Keep at least these records:
 - `prompt = forward_prompt`
 - `reset_after = false`
 - the current policy, timeout, poll interval, and retry parameters
-- Save the rollout result, timestamps, and status text into the round log with `AgentTools___append_jsonl_record`.
+- Note the rollout result, timestamps, and status in the conversation context.
 
 ### Step 4: Persist the Forward Trajectory
 
@@ -102,7 +98,7 @@ Keep at least these records:
 - `success` or `failure_reason`
 - `policy_host/port`, `step_interval`, `timeout_s`, `poll_interval_s`
 - trajectory data fields such as `o_t`, `q_t`, and `a_t`
-- Use `AgentTools___append_jsonl_record` to persist the episode into `run_dir/dataset/episodes.jsonl`.
+- Record the episode metadata in conversation context.
 
 ### Step 5: Execute the Reverse or Recovery Rollout
 
@@ -121,7 +117,7 @@ Keep at least these records:
 - forward status and reverse status
 - whether the ending state satisfies `initial_state_criteria`
 - whether the round is complete, failed, or requires human reset
-- Write the round summary with `AgentTools___append_jsonl_record`.
+- Record the round summary in conversation context.
 
 ### Step 7: Decide Whether to Continue
 

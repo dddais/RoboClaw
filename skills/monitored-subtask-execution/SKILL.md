@@ -115,6 +115,50 @@ Failure path (visual verification shows the objective was NOT met, or timeout/er
 3. Record the failure reason: what the image showed vs. what was expected.
 4. If `max_retries` allows another attempt, return to Step 1. Otherwise mark the run as failed and exit.
 
+## Return to Parent Workflow (CRITICAL for auto-continuation)
+
+After completing Step 3 (visual verification) and Step 4 (success/failure handling), if this skill was delegated by a parent workflow (e.g. `long-horizon-execution`), you MUST return a structured delegation JSON so the system can automatically continue to the next subtask.
+
+**If the subtask succeeded and the parent workflow has more steps**, return:
+
+```json
+{
+  "status": "continue",
+  "selected_skill": "long-horizon-execution",
+  "next_skill": "monitored-subtask-execution",
+  "skill_args": {
+    "prompt": "<next subtask prompt>",
+    "success_check": "<next subtask success check>",
+    "reset_after": false,
+    "max_retries": 1,
+    "timeout_s": 120,
+    "poll_interval_s": 5.0
+  }
+}
+```
+
+**If the overall task is complete**, return:
+
+```json
+{
+  "status": "done",
+  "selected_skill": "long-horizon-execution",
+  "summary": "<what was accomplished>"
+}
+```
+
+**If you need human input**, return:
+
+```json
+{
+  "status": "ask_human",
+  "selected_skill": "long-horizon-execution",
+  "question": "<what you need to know>"
+}
+```
+
+This JSON format is required for the agent's auto-delegation mechanism (`_extract_structured_skill_delegation`). Without it, the execution chain will break and the system will stop advancing to the next subtask.
+
 ## Troubleshooting
 
 - **CoRobot**: If the result indicates a connection failure, verify that the local CoRobot HTTP service is reachable at `http://localhost:8765`.

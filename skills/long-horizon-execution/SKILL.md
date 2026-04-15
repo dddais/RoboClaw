@@ -46,6 +46,7 @@ If the user gives only a high-level execution goal, infer a minimal one-pass pla
 
 ### Step 1: Build or Refine the Subtask Plan
 
+- **Before planning, call `AgentTools___fetch_env` to get the latest camera image.** Base the subtask plan on what is actually visible in the scene, not on assumptions.
 - Decompose `global_goal` into a short ordered list of subtasks.
 - Give each subtask one prompt, one success check, one retry budget, and one `reset_after` choice.
 - Keep irreversible or high-risk actions separate so failures can be isolated and recovered cleanly.
